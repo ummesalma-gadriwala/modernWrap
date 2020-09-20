@@ -1,0 +1,5 @@
+.env
+config.js
+.cp
+.backup
+node_modules
