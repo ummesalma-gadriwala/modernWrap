@@ -8,7 +8,7 @@ router.post('/createGiftRequest', GiftRequestController.createGiftRequest)
 router.get('/getGiftRequest', GiftRequestController.getGiftRequest)
 router.get('/getGiftRequests', GiftRequestController.getGiftRequests)
 router.get('/deleteGiftRequest', GiftRequestController.deleteGiftRequest)
-router.put('/updateGiftRequest', GiftRequestController.updateGiftRequest)
+// router.put('/updateGiftRequest', GiftRequestController.updateGiftRequest)
 
 // Clue
 router.post('/createClue', CluesController.createClue)
