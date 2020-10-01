@@ -1,5 +1,6 @@
 const mongoose = require('mongoose')
-const {GiftRequests, Clues} = require('../models/giftRequests-model')
+const {GiftRequests, Message} = require('../models/giftRequests-model')
+const send = require('../scheduler/sms')
 
 // Create new gift request
 createGiftRequest = (req, res) => {
@@ -12,15 +13,15 @@ createGiftRequest = (req, res) => {
         })
     }
 
+    let introductionMessage = {}
+    let finalMessage = {}
     let clues = []
 
+    introductionMessage = new Message(req.body.introductionMessage)
+    finalMessage = new Message(req.body.finalMessage)
+
     req.body.clues.forEach(function(clue){
-        clues.push(new Clues({
-            message: clue.message,
-            status: false,
-            time: clue.time
-            })
-        )
+        clues.push(new Message(clue))
     })
 
     let giftRequest = new GiftRequests({
@@ -28,14 +29,13 @@ createGiftRequest = (req, res) => {
         giverContact: req.body.giverContact,
         receiverName: req.body.receiverName,
         receiverContact: req.body.receiverContact,
-        startDate: req.body.startDate,
-        endDate: req.body.endDate,
+        startDate: introductionMessage.time,
+        endDate: finalMessage.time,
         clueFrequency: req.body.clueFrequency,
         clues: clues,
-        introductionMessage: req.body.introductionMessage,
-        finalMessage: req.body.finalMessage,
-        giftCategory: req.body.giverCategory,
-        status: req.body.status,
+        introductionMessage: introductionMessage,
+        finalMessage: finalMessage,
+        giftCategory: req.body.giftCategory,
         confirmationNumber: new mongoose.Types.ObjectId()
     })
 
@@ -44,6 +44,15 @@ createGiftRequest = (req, res) => {
     giftRequest
         .save()
         .then(() => {
+            // send order confirmation to giver
+            var messageList = []
+            var body = giftRequest.giverName + ", your gift request for " + giftRequest.receiverName + " is confirmed. Confirmation number: " + giftRequest.confirmationNumber
+            messageList.push({
+                'body': body,
+                'contact': giftRequest.giverContact
+            })
+            send(messageList)
+
             return res.status(201).json({
                 status: 'Success',
                 message: giftRequest.confirmationNumber.toString()
@@ -52,8 +61,7 @@ createGiftRequest = (req, res) => {
         .catch(error => {
             return res.status(400).json({
                 status: 'Fail',
-                message: "Gift Request Failed",
-                error
+                message: error
             })
         })
 }
@@ -61,6 +69,12 @@ createGiftRequest = (req, res) => {
 // Get gift request by confirmation number
 getGiftRequest = async (req, res) => {
     console.log("Getting Gift Request", req.query)
+
+    if (req.query.confirmationNumber == 'undefined' || 
+        req.query.confirmationNumber == '') {
+        console.log("confirmationNumber", req.query.confirmationNumber)
+        return res.status(400).json({ status: 'Fail', message: "Missing Confirmation Number" })
+    }
 
     await GiftRequests.findOne({ confirmationNumber: req.query.confirmationNumber }, (error, giftRequest) => {
         if (error) {
@@ -70,7 +84,7 @@ getGiftRequest = async (req, res) => {
         if (!giftRequest) {
             return res.status(404).json({ status: 'Fail', message: 'Gift Request not found' })
         }
-
+        console.log("giftRequest", giftRequest)
         return res.status(200).json({ status: 'Success', message: giftRequest })
     }).catch(err => console.log(err))
 }
@@ -93,10 +107,10 @@ getGiftRequests = async (req, res) => {
 }
 
 // Delete gift request by confirmation number
-deleteGiftRequest = async (req, res) => {
-    console.log("Deleting Gift Request", req.query)
+cancelGiftRequest = async (req, res) => {
+    console.log("Cancelling Gift Request")
 
-    await GiftRequests.findOneAndDelete({ confirmationNumber: req.query.confirmationNumber }, (error, giftRequest) => {
+    await GiftRequests.findOne({ confirmationNumber: req.query.confirmationNumber }, (error, giftRequest) => {
         if (error) {
             return res.status(400).json({ status: 'Fail', message: error })
         }
@@ -105,10 +119,38 @@ deleteGiftRequest = async (req, res) => {
             return res.status(404).json({ status: 'Fail', message: 'Gift Request not found' })
         }
 
+        giftRequest.status = "Cancelled"
+        giftRequest.introductionMessage.status = true
+        giftRequest.finalMessage.status = true
+        var i;
+        for (i=0; i < giftRequest.clues.length; i++) {
+            giftRequest.clues[i].status = true
+        }
 
-        return res.status(200).json({ status: 'Success', message: giftRequest })
+        giftRequest
+        .save()
+        .then(() => {
+            // send order confirmation to giver
+            var messageList = []
+            var body = giftRequest.giverName + ", your gift request for " + giftRequest.receiverName + " is cancelled. Confirmation number: " + giftRequest.confirmationNumber
+            messageList.push({
+                'body': body,
+                'contact': giftRequest.giverContact
+            })
+            send(messageList)
+
+            return res.status(200).json({
+                status: 'Success',
+                message: 'Cancelled ' + giftRequest.confirmationNumber.toString()
+            })
+        })
+        .catch(error => {
+            return res.status(400).json({
+                status: 'Fail',
+                message: error
+            })
+        })
     }).catch(err => console.log(err))
-
 }
 
 // Not MVP
@@ -144,19 +186,29 @@ updateGiftRequest = async (req, res) => {
         giftRequest.giverContact = req.body.giverContact
         giftRequest.receiverName = req.body.receiverName
         giftRequest.receiverContact = req.body.receiverContact
-        giftRequest.startDate = req.body.startDate
-        giftRequest.endDate = req.body.endDate
+        giftRequest.startDate = req.body.introductionMessage.time
+        giftRequest.endDate = req.body.finalMessage.time
         giftRequest.clueFrequency = req.body.clueFrequency
         giftRequest.clues = clues
-        giftRequest.introductionMessage = req.body.introductionMessage
-        giftRequest.giftCategory = req.body.giverCategory
-        giftRequest.finalMessage = req.body.finalMessage
+        giftRequest.introductionMessage = new Message(req.body.introductionMessage)
+        giftRequest.finalMessage = new Message(req.body.finalMessage)
+        giftRequest.giftCategory = req.body.giftCategory
+        
 
         console.log("giftRequest updated", giftRequest)
 
         giftRequest
         .save()
         .then(() => {
+            // send order confirmation to giver
+            var messageList = []
+            var body = giftRequest.giverName + ", your gift request for " + giftRequest.receiverName + " is updated. Confirmation number: " + giftRequest.confirmationNumber
+            messageList.push({
+                'body': body,
+                'contact': giftRequest.giverContact
+            })
+            send(messageList)
+
             return res.status(200).json({
                 status: 'Success',
                 message: 'Updated ' + giftRequest.confirmationNumber.toString()
@@ -165,8 +217,7 @@ updateGiftRequest = async (req, res) => {
         .catch(error => {
             return res.status(400).json({
                 status: 'Fail',
-                message: "Gift Request Failed",
-                error
+                message: error
             })
         })
     }).catch(err => console.log(err))
@@ -177,6 +228,6 @@ module.exports = {
     createGiftRequest,
     getGiftRequest,
     getGiftRequests,
-    deleteGiftRequest,
+    cancelGiftRequest,
     updateGiftRequest
 }

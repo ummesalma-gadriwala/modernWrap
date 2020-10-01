@@ -7,7 +7,7 @@ const router = express.Router()
 router.post('/createGiftRequest', GiftRequestController.createGiftRequest)
 router.get('/getGiftRequest', GiftRequestController.getGiftRequest)
 router.get('/getGiftRequests', GiftRequestController.getGiftRequests)
-router.get('/deleteGiftRequest', GiftRequestController.deleteGiftRequest)
+router.get('/cancelGiftRequest', GiftRequestController.cancelGiftRequest)
 // router.put('/updateGiftRequest', GiftRequestController.updateGiftRequest)
 
 // Clue

@@ -1,10 +1,11 @@
 const mongoose = require('mongoose')
 const Schema = mongoose.Schema
 
-const Clues = new Schema(
+const Message = new Schema(
     {
-        message: { type: String, required: true },
-        status: { type: Boolean, required: true },
+        content: { type: String, required: true },
+        // true = sent, false = pending
+        status: { type: Boolean, required: true, default: false },
         time: { type: Date, required: true },
     }
 )
@@ -19,11 +20,12 @@ const GiftRequests = new Schema(
         startDate: { type: Date, required: true },
         endDate: { type: Date, required: true },
         clueFrequency: { type: Number, required: true, default: 3 },
-        clues: { type: [Clues], required: true },
-        introductionMessage: { type: String, required: true },
-        finalMessage: { type: String, required: true },
+        clues: { type: [Message], required: true },
+        introductionMessage: { type: Message, required: true },
+        finalMessage: { type: Message, required: true },
         giftCategory: { type: String, required: true, default: 'BuildYourOwn' },
-        status: { type: Boolean, required: true },
+        // Cancelled, Completed <- Ongoing <- Unstarted
+        status: { type: String, required: true, default: "Unstarted" },
         confirmationNumber: { type: mongoose.ObjectId, required: true }
     },
     { timestamps: true },
@@ -31,5 +33,5 @@ const GiftRequests = new Schema(
 
 module.exports = {
     GiftRequests: mongoose.model('GiftRequests', GiftRequests),
-    Clues: mongoose.model('Clues', Clues)
+    Message: mongoose.model('Message', Message)
 }

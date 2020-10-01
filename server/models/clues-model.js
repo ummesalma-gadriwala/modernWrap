@@ -4,7 +4,7 @@ const Schema = mongoose.Schema
 const Clue = new Schema(
     {
         sequence: { type: Number, required: true },
-        message: { type: String, required: true }
+        content: { type: String, required: true }
     }
 )
 

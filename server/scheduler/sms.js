@@ -10,7 +10,7 @@ function send(messageList) {
       from: config.twilio_phone_number,
       to: message.contact
    })
-   .then(message => console.log("message sent", message.sid));
+   .then(message => console.log("Message sent", message.sid));
   });  
 }
 
